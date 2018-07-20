@@ -1,0 +1,152 @@
+---
+title: "Small Worlds and Large Worlds"
+output: html_notebook
+---
+
+
+```{r}
+# Setup of 
+library(rethinking)
+```
+
+
+```{r}
+ways <- c(0,3,8,9,0)
+ways / sum(ways)
+```
+
+* A conjectured proportion of blue marbles, $p$, is usually called a *parameter* value. 
+
+* The relative number of ways that a value $p$ can produce the data is usually called a *likelihood*
+
+* The prior plausibility of any specific p is called the *prior probability*
+
+* The new updated plausibility of any specific p is called *posterior probability*
+
+
+## Bayesian model 
+
+### Data story: Motivate the model by narrating how the data might arise
+
+The data story is simply a restatement of the sampling process
+
+1. The true proportion of water covering the globe is $p$
+
+2. A single toss of the globe has a probablility of p of producing a water (W) observation. It has a probability $1-p$ of producing a land (L) observation. 
+
+3. Each toss of the globe is independent of the others
+
+### Update: Educate your model by feeding it the data
+
+1. A Bayesian model begins with one set of plausibilities assigned to each of these possubilities. These are the prior plausibilities. Then it updates them in light of the data, to produce the posterior plausibilities *Bayesian updating*
+
+2. Notice that every updated set of plausibilities becomes the initial plausibilities for the next observation. 
+
+3a. It is common to hear tat there is a minimum number of onservations for a useful statistical estimate. For example, there is a wide-spread superstition that 30 observations are needed for one can use a Gaussian distribution. Why? In non-Bayesian statistical inference, procedures are often justified by the methods' behavior at very large sample sizes, so called asymptotic behavior. As a result, performance at small sample sizes is questionable. 
+
+3b. In contrast, Bayesian estimates are valid for any sample size. This does not mean that more data isn't helpful-- it certainly is. Rather the estimates have a clear and valid interpretation, no matter the sample size. But the price for this power is dependency upon the initial estimates, the prior. If the prior is a bad one, then the resulting inference will be misleading. Theree's no free lunch when it comes to learning from the world. A Bayesian golem must choose an initial plausibility, and a non-Bayesian golem must choose an estimator. Both golems pay for lunch with their assumptions.
+
+### Evaluate: All statistical models require supervision, leading possibly to model revision
+
+1. The model's certainty is no guarantee that the model is a good one. 
+
+2. It is important to supervise and critique your model's work. 
+
+3. The goal is not to test the truth value of the model's assumptions. We know the model's assumptions are never exactly right, in the sense of matching the true data generating process.
+
+4. Models do not need to be esxactly true in order to produce highly precise and useful inferences. 
+
+5. The objective is to check the model's adequacy for some purpose. This usually means asking and answering additional questions, beyond those that origianlly constructed the model. 
+
+## Components of the model 
+
+1. The number of ways each conjecture could produce an observation (likelyhood function)
+
+* You can build your own likelihood formula from basic assumptions of your story for how the data arise. 
+
+In the case of the globe tossing model, the likelihood can be derived from the data story. Begin by nominating all of the possible events. There are two: water (W) and land (L). There are no other events. The globe never gets stuck to the ceiling, for example. When we observe a sample of W’s and L’s of length N (nine in the actual sample), we need to say how likely that exact sample is, out of the universe of potential samples of the same length. That might sound challenging, but it’s the kind of thing you get good at very quickly, once you start practicing.
+
+In this case, once we add our assumptions that (1) every toss is independent of the other tosses and (2) the probability of W is the same on every toss, probability theory provides a unique answer, known as the binomial distribution. This is the common “coin tossing” distribution. And so the probability of observing w W’s in n tosses, with a probability p of W, i
+```{r}
+dbinom(6, size=9, prob = 0.6)
+```
+
+A central role for likelihood. A great deal of ink has been spilled focusing on how Bayesian and non-Bayesian data analyses differ. Focusing on differences is useful, but sometimes it distracts us from fundamental similarities. Notably, the most influential assumptions in both Bayesian and many non-Bayesian models are the likelihood functions and their relations to the parameters. The assumptions about the likelihood influence inference for every piece of data, and as sample size increases, the likelihood matters more and more. This helps to explain why Bayesian and non-Bayesian inferences are often so simila
+
+
+2. The accumulated number of ways each conjecture could produce the entire data (one or more parameters)
+
+* For most likelihood functions, there are adjustable inputs. In the binomial likelihood, these inputs are p (the probability of seeing a W), n (the sample size), and w (the number of W's)
+
+3. The initial plausibility of each conjectured cause of the data (prior)
+  
+  
+## Grid Approximation 
+
+1. Define the grid. This means you decide how many point to use in estimating the posterior, and then you make a list of the paramter values on the grid. 
+
+2. Compute the value of the prior at each parameter value on the grid
+
+3. Compute the likelihood at each parameter value 
+
+4.  Compute the unstandardized posterior at each parameter value, by multiplying the prior by the likelihood.
+
+5. Finally, standardize the posterior, by dividing each value by the sum of all values.
+
+```{r}
+#Define grid
+p_grid <- seq(from = 0, to = 1, length.out = 20)
+
+#define prior 
+#prior <- rep(1,20)
+#prior <- ifelse(p_grid < 0.5,0,1)
+prior <- -exp(-5*abs(p_grid  - 0.5))
+
+#compute likelihood at each value in grid
+likelihood <- dbinom(6, size = 9, prob = p_grid)
+
+# compute product of likelihood and prior
+unstd.posterior <- likelihood*prior
+
+#standarize the posterior, so it sums up to 1 
+posterior <- unstd.posterior / sum(unstd.posterior)
+
+plot(p_grid, posterior, type = "b", xlab = "Probability of water", ylab = "Posterior Probability ")
+mtext("20 points")
+```
+
+
+## Quadratic Aprroximation
+
+A useful approach is QUADRATIC APPROXIMATION. Under quite general conditions, the region near the peak of the posterior distribution will be nearly Gaussian—or “normal”—in shape. This means the posterior distribution can be usefully approximated by a Gaussian distribution. A Gaussian distribution is convenient, because it can be completely described by only two numbers: the location of its center (mean) and its spread (variance).
+
+
+1. Find the posterior mode.  This is usually accomplished by some optimization algorithm, a procedure that virtually “climbs” the posterior distribution, as if it were a mountain. The golem doesn’t know where the peak is, but it does know the slope under its feet. There are many well-developed optimization procedures, most of them more clever than simple hill climbing. But all of them try to find peaks.
+
+2. Once you find the peak of the posterior, you must estimate the curvature near the peak. This curvature is sufficient to compute a quadratic approximation of the entire posterior distribution. In some cases, these calculations can be done analytically, but usually your computer uses some numerical technique instead.
+
+MAP - Maximum A Posteriori
+```{r}
+global.qa <- map(
+  alist(w ~ dbinom(9,p),
+        p ~ dunif(0,1)), 
+  data=list(w=6))
+
+#Display summary of quadratic approximation
+precis(global.qa)
+```
+
+Assuming the posterior is Gaussian, it is maximized at 0.67, and its standard deviation is 0.16
+
+```{r}
+#analytical calc
+w <- 6
+n <- 9 
+
+curve(dbeta(x, w+1,n-w+1),from=0,to=1)
+
+#quadratic approximation
+curve(dnorm(x,0.67,0.16),lty=2, add = TRUE)
+```
+
+Using the quadratic approximation in a Bayesian context brings with it all the same concerns. But you canalways lean on some algorithm other than quadratic approximation, if you have doubts. 

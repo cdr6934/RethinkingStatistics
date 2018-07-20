@@ -1,0 +1,271 @@
+---
+title: "Sampling the Imaginary"
+output: html_notebook
+---
+
+To repeat the structure of common examples, suppose there is a blood test that correctly detects vampirism 95% of the time. This implies Pr(positive|vampire) = 0.95. It’s a very accurate test. It does make mistakes, though, in the form of false positives. One percent of the time, it incorrectly diagnoses normal people as vampires, implying Pr(positive|mortal) = 0.01. The final bit of information we are told is that vampires are rather rare, being only 0.1% of the population, implying Pr(vampire) = 0.001. Suppose now that someone tests positive for vampirism. What’s the probability that he or she is a bloodsucking immortal?
+
+ $$
+ Pr(vampire|positive) = \frac{Pr(positive|vampire)}{Pr(positive)}
+ $$
+
+```{r}
+PrPV <- 0.95
+PrPM <- 0.01
+PrV <- 0.001
+
+PrP <- PrPV*PrV + PrPM*(1-PrV)
+PrVP <- PrPV*PrV/PrP
+PrVP  
+```
+
+
+There is a way to present the same problem that does make it more intuitive, however. Suppose that instead of reporting probabilities, as before, I tell you the following:
+
+(1)  In a population of 100,000 people, 100 of them are vampires.
+
+(2)  Of the 100 who are vampires, 95 of them will test positive for vampirism.
+
+(3)  Of the 99,900 mortals, 999 of them will test positive for vampirism.
+
+Also called the frequency format or natural frequencies 
+
+$$
+Pr(vampire|positive)=\frac{95}{1094}=0.087
+$$
+
+Two reasons to adopt the sampling approach early on: 
+
+First, many scientists are quite shaky about integral calculus, even though they have strong and valid intuitions about how to summarize data.
+
+Second, some of the most capable methods of computing the posterior produce nothing but samples. Many of these methods are variants of Markov chain Monte Carlo techniques (MCMC).
+
+(1) There is some binary state that is hidden from us; (2) we observe an imperfect cue of the hidden state; (3) we (should) use Bayes’ theorem to logically deduce the impact of the cue on our uncertainty.
+
+## Sampling from a grid-approximate posterior
+```{r}
+p_grid <- seq(from = 0, to = 1, length.out = 1000)
+prior <- rep(1,1000)
+likelihood <- dbinom(6,size=9,prob=p_grid)
+posterior <- likelihood * prior
+posterior <- posterior / sum(posterior)
+```
+
+```{r}
+samples <- sample(p_grid, prob=posterior, size = 1e4, replace=TRUE)
+plot(samples)
+dens(samples)
+```
+
+```{r}
+# add up posterior probability where p < 0.5
+sum(posterior[p_grid < 0.5])
+```
+
+All you have to do is similarly add up all of the samples below 0.5, but also divide the resulting count by the total number of samples. In other words, find the frequency of parameter values below 0.5:
+
+```{r}
+sum(samples < 0.5) / 1e4
+```
+
+
+Following demonstrate the idea of confidence intervals of the data 
+
+Using the same approach, you can ask how much posterior probability lies between 0.5 and 0.75:
+```{r}
+sum(samples > 0.5 & samples < 0.75) / 1e4
+```
+
+
+```{r}
+quantile(samples, 0.8)
+```
+
+```{r}
+quantile(samples, c(0.1,0.9))
+```
+  This posterior is consistent with observing three waters in three tosses and a uniform (flat) prior. It is highly skewed, having its maximum value at the boundary, p = 1. You can compute it, via grid approximation, with:
+  
+```{r}
+p_grid <- seq(from = 0, to = 1, length.out = 1000)
+
+prior <- rep(1,1000)
+
+likelihood <- dbinom(3,size=3, prob=p_grid)
+
+posterior <- likelihood * prior 
+
+posterior <- posterior / sum(posterior)
+
+samples <- sample(p_grid, size = 1e4, replace =  TRUE, prob = posterior)
+
+#from rethinking library
+PI(samples, prob = 0.5)
+
+HPDI(samples, prob = 0.5)
+
+plot(samples)
+dens(samples, show.HPDI = 0.5)
+```
+
+In this example, it ends up excluding the most probable parameter values, near p = 1. So in terms of describing the shape of the posterior distribution—which is really all these intervals are asked to do—the percentile interval can be misleading.
+
+
+
+Highest Posterior Density Interval (HPDI)
+```{r}
+HPDI(samples, prob = 0.5)
+```
+The difference between percentile and highest posterior density confidence intervals. The posterior density here corresponds to a flat prior and observing three water samples in three total tosses of the globe. 
+
+PI: 50% percentile interval. This interval assigns equal mass (25%) to both the left and right tail. As a result, it omits the most probable parameter value, p = 1. 
+
+HPDI: 50% highest posterior density interval, HPDI. This interval finds the narrowest region with 50% of the posterior probability. Such a region always includes the most probable parameter value.
+
+Hence, This interval captures the parameters with highest posterior probability, as well as being noticeably narrower: 0.16 in width rather than 0.23 for the percentile interval.
+
+
+```{r}
+p_grid <- seq(from = 0, to = 1, length.out = 1000)
+
+prior <- rep(1,1000)
+
+
+water <- 3
+sample_n <- 9 
+likelihood <- dbinom(water,size=sample_n, prob=p_grid)
+
+posterior <- likelihood * prior 
+
+posterior <- posterior / sum(posterior)
+
+samples <- sample(p_grid, size = 1e4, replace =  TRUE, prob = posterior)
+
+dens(samples,show.HPDI = 0.8)
+
+probability <- 0.95
+#from rethinking library
+PI(samples, prob = probability)
+
+# Highest Posterior Density Interval 
+HPDI(samples, prob = probability)
+```
+
+### Risks of using HPDI
+
+* more computationally intensive
+* suffers from greater _simulation variance_
+
+### Rethinking: What do confidence intervals mean? 
+
+It is common to hear that a 95% confidence interval means that there is a probability 0.95 that the true parameter value lies within the interval. In strict non-Bayesian statistical inference, such a statement is never correct, because strict non-Bayesian inference forbids using probability to measure uncertainty about parameters. Instead, one should say that if we repeated the study and analysis a very large number of times, then 95% of the computed intervals would contain the true parameter value. If the distinction is not entirely clear to you, then you are in good company. Most scientists find the definition of a confidence interval to be bewildering, and many of them slip unconsciously into a Bayesian interpretation.
+
+### 3. Point Estimates
+Common summary task for the postrior is to produce point estmiates of some kind. 
+
+* Maximum a posteriori (MAP)
+```{r}
+p_grid[which.max(posterior)]
+```
+* Approximate the same point
+```{r}
+chainmode(samples, adj=0.01)
+```
+
+Calculating expected loss for any given decision means using the posterior to average over our uncertainty in the true value. Of course, we don't know the true value, in most cases.
+
+```{r}
+sum(posterior*abs(0.5-p_grid))
+```
+
+Theres a trick for repeating this calcuation for every possible decision, using the function apply
+```{r}
+loss <- sapply(p_grid, function(d) sum(posterior*abs(d-p_grid)))
+p_grid[which.min(loss)]
+```
+```{r}
+median(samples)
+```
+
+A single-value summary of the posterior distribution, we need to pick a loss function. 
+
+* Absolute loss -> leads to the mean as the point estimate
+* Quadratic loss -> leads to the pstieror mean 
+
+
+Usually it’s better to communicate as much as you can about the posterior distribution, as well as the data and the model itself, so that others can build upon your work. Premature decisions to accept or reject hypotheses can cost lives.
+
+### Sampling to simulate prediction
+1. Model checking 
+2. Software validation
+3. Research design 
+4. Forecasting 
+
+
+### Dummy Data 
+
+$$
+Pr(w|n,p)=\frac{n!}{w!(n-w)}p^w(1-p)^{n-w}
+$$
+
+w = observed count of "water" 
+n = number of tosses 
+
+```{r}
+dbinom(0:2, size = 2, prob = 0.7)
+```
+d - stands for distribution
+
+
+r - random 
+```{r}
+rbinom(10,size =2, prob =0.7)
+```
+
+
+Here we generated 10000 dummy observations, just to verify that each value appears in proportion to its likelihood. 
+```{r}
+dummy_w <- rbinom(1e5, size=2, prob=0.7)
+table(dummy_w)/1e5
+```
+
+```{r}
+dummy_w <- rbinom(1e5, size=9, prob=0.7)
+simplehist(dummy_w, xlab = "dummy water count")
+```
+
+
+### Model Checking 
+1. Ensuring the model fitting works correctly 
+2. Evaluating the adequacy of a model for some purpose 
+3. There are a few types of certainty 
+  1. observation uncertainty
+  2. uncertainty about p 
+  
+```{r}
+w <- rbinom(1e4, size = 9, prob = 0.6)
+w2 <- rbinom(1e4, size = 9, prob = 0.7)
+simplehist(w)
+simplehist(w2)
+```
+```{r}
+w <- rbinom(1e4, size = 9, prob = samples)
+```
+  
+  
+  
+```{r}
+p_grid <- seq(from=0, to = 1, length.out = 1000)
+prior <- rep(1,1000)
+likelihood <- dbinom(6,size=9,prob=p_grid)
+posterior <- likelihood*prior
+posterior <- posterior / sum(posterior) 
+set.seed(100)
+samples <- sample(p_grid, prob=posterior, size=1e4, replace=TRUE)
+
+
+sum(samples[samples < 0.2])
+
+```
+  
+  
