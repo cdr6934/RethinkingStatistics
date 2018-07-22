@@ -3,9 +3,16 @@ title: "Chapter 4: Linear Models "
 output: html_notebook
 ---
 
+Linear regression is the geocentric model of applied statistics also 
+known as a family of simple statistical golems that attempt to learn about the mean and variance of some measurement, using an additiv e combination of other measurements. 
+
+### 4.1 Why normal distributions are normal 
+
 
 ```{r}
-plot(cars)
+pos <- replicate(1000, sum(runif(16,-1,1)))
+
 ```
+
 
 
