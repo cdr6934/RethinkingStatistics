@@ -9,10 +9,18 @@ known as a family of simple statistical golems that attempt to learn about the m
 ### 4.1 Why normal distributions are normal 
 
 
+
 ```{r}
 pos <- replicate(1000, sum(runif(16,-1,1)))
 
 ```
+
+Plotting the distribution of final positions in number of different ways to visualize. 
+```{r}
+hist(pos)
+plot(density(pos))
+```
+
 
 
 
